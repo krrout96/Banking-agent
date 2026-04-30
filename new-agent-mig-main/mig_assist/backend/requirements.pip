@@ -1,0 +1,17 @@
+# Backend Dependencies
+boto3>=1.34.0
+python-dotenv>=1.0.0
+strands-agents
+strands-agents-tools
+bedrock-agentcore>=0.1.0
+mcp>=0.1.0
+uvicorn>=0.27.0
+requests>=2.31.0
+fastapi>=0.109.0
+python-multipart>=0.0.9
+bedrock-agentcore-starter-toolkit
+requests-aws4auth
+aiofiles
+mangum
+uv>=0.5.0
+diagrams>=0.23.4

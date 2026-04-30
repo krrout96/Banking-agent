@@ -1,0 +1,98 @@
+name: Deploy Terraform and App
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+      - 'mig_assist/**'
+      - '.github/workflows/deploy.yml'
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  APP_NAME: ${{ vars.APP_NAME || 'migration-agent-cloud' }}
+  TF_IN_AUTOMATION: 'true'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (access keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Compute image tag
+        id: meta
+        run: echo "image_tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      - name: Terraform init
+        working-directory: terraform
+        run: terraform init -input=false
+
+      - name: Terraform apply (infra bootstrap, desired_count=0)
+        working-directory: terraform
+        run: |
+          terraform apply -auto-approve -input=false \
+            -var "aws_region=${AWS_REGION}" \
+            -var "app_name=${APP_NAME}" \
+            -var "container_image_tag=${{ steps.meta.outputs.image_tag }}" \
+            -var "desired_count=0"
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        working-directory: mig_assist
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
+          VITE_APP_TITLE: ${{ vars.APP_TITLE || 'AWS Migration Assistant' }}
+          VITE_COGNITO_USER_POOL_ID: ${{ vars.VITE_COGNITO_USER_POOL_ID }}
+          VITE_COGNITO_CLIENT_ID: ${{ vars.VITE_COGNITO_CLIENT_ID }}
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REPO_URI="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${APP_NAME}"
+
+          docker build --platform linux/amd64 \
+            --build-arg "VITE_APP_TITLE=${VITE_APP_TITLE}" \
+            --build-arg "VITE_COGNITO_USER_POOL_ID=${VITE_COGNITO_USER_POOL_ID}" \
+            --build-arg "VITE_COGNITO_CLIENT_ID=${VITE_COGNITO_CLIENT_ID}" \
+            -f Dockerfile \
+            -t "${APP_NAME}:${IMAGE_TAG}" \
+            .
+
+          docker tag "${APP_NAME}:${IMAGE_TAG}" "${ECR_REPO_URI}:${IMAGE_TAG}"
+          docker tag "${APP_NAME}:${IMAGE_TAG}" "${ECR_REPO_URI}:latest"
+
+          docker push "${ECR_REPO_URI}:${IMAGE_TAG}"
+          docker push "${ECR_REPO_URI}:latest"
+
+      - name: Terraform apply (activate ECS service desired_count=1)
+        working-directory: terraform
+        run: |
+          terraform apply -auto-approve -input=false \
+            -var "aws_region=${AWS_REGION}" \
+            -var "app_name=${APP_NAME}" \
+            -var "container_image_tag=${{ steps.meta.outputs.image_tag }}" \
+            -var "desired_count=1"
+
+      - name: Show deployment outputs
+        working-directory: terraform
+        run: terraform output

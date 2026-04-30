@@ -1,0 +1,56 @@
+:root {
+    /* --- Premium Dark Palette --- */
+    --bg-primary: #0f0f12;
+    /* Deep void black */
+    --bg-secondary: #1a1a1f;
+    /* Card background */
+    --bg-tertiary: #27272f;
+    /* Hover/Input background */
+
+    --text-primary: #ffffff;
+    --text-secondary: #a1a1aa;
+
+    /* --- Accents (Cyberpunk/Enterprise Fusion) --- */
+    --accent-primary: #6366f1;
+    /* Indigo */
+    --accent-secondary: #ec4899;
+    /* Pink/Magenta */
+    --accent-gradient: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
+
+    /* --- Glassmorphism --- */
+    --glass-bg: rgba(23, 23, 28, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    --backdrop-blur: 10px;
+
+    /* --- Spacing --- */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
+}
+
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
